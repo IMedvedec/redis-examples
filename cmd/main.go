@@ -1,12 +1,28 @@
 package main
 
 import (
+	"context"
+	"log"
+
 	"github.com/imedvedec/redis-examples/redis"
 )
 
 func main() {
-	sr := redis.NewService()
+	redisService, err := redis.NewService()
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
-	sr.Ping()
-	sr.Shutdown()
+	val, err := redisService.Ping(context.Background())
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	log.Println(val)
+
+	if err := redisService.Shutdown(context.Background()); err != nil {
+		log.Println(err)
+		return
+	}
 }

@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -11,14 +12,15 @@ import (
 
 const (
 	redisHostEnvVarKey = "REDIS_HOST"
+	defaultRedisHost   = ":6379"
 )
 
 // Service defines the client interface for redis usage.
 type Service interface {
 	// Ping runs the redis Ping command.
-	Ping() error
+	Ping(ctx context.Context) (string, error)
 	// Shutdown closes the redis service connection pool.
-	Shutdown() error
+	Shutdown(ctx context.Context) error
 }
 
 // Check in compile time that redisService implements the Service interface.
@@ -30,14 +32,14 @@ type redisService struct {
 }
 
 // NewService is a redisService constructor.
-func NewService() Service {
+func NewService() (Service, error) {
 	redisService := redisService{}
 
 	if err := redisService.initialization(); err != nil {
-		log.Panicf("redis: new redis service initialization has failed: %v", err)
+		return nil, fmt.Errorf("redis: new redis service initialization has failed: %w", err)
 	}
 
-	return &redisService
+	return &redisService, nil
 }
 
 // initialization is a helper method for service initialization.
@@ -46,15 +48,15 @@ func NewService() Service {
 func (s *redisService) initialization() error {
 	redisHost := os.Getenv(redisHostEnvVarKey)
 	if redisHost == "" {
-		redisHost = ":6379"
+		redisHost = defaultRedisHost
 	}
 
 	s.pool = &redis.Pool{
 		MaxIdle:     3,
 		IdleTimeout: 180 * time.Second,
 
-		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial("tcp", redisHost)
+		DialContext: func(ctx context.Context) (redis.Conn, error) {
+			c, err := redis.DialContext(ctx, "tcp", redisHost)
 			if err != nil {
 				return nil, err
 			}
@@ -67,14 +69,26 @@ func (s *redisService) initialization() error {
 		},
 	}
 
+	conn := s.pool.Get()
+	_, err := redis.String(conn.Do("PING"))
+	if err != nil {
+		return fmt.Errorf("redis: service connection has error: %w", err)
+	}
+
 	log.Println("redis: service successfully initialized, ready for use.")
 
 	return nil
 }
 
 // Shutdown implements Service.Shutdown method.
-func (s *redisService) Shutdown() error {
-	s.pool.Close()
+func (s *redisService) Shutdown(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("redis: service shutdown has context error: %w", err)
+	}
+
+	if err := s.pool.Close(); err != nil {
+		return fmt.Errorf("redis: service shutdown has failed: %w", err)
+	}
 
 	log.Println("redis: service shutdown is complete.")
 
@@ -82,15 +96,21 @@ func (s *redisService) Shutdown() error {
 }
 
 // Ping implements Servce.Ping method.
-func (s *redisService) Ping() error {
-	conn := s.pool.Get()
+func (s *redisService) Ping(ctx context.Context) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", fmt.Errorf("redis: ping command has context error: %w", err)
+	}
+
+	conn, err := s.pool.GetContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("redis: connection setup for PING command has failed: %w", err)
+	}
 	defer conn.Close()
 
-	res, err := redis.String(conn.Do("PING"))
+	result, err := redis.String(conn.Do("PING"))
 	if err != nil {
-		return fmt.Errorf("redis: ping command has error: %w", err)
+		return "", fmt.Errorf("redis: ping command has failed: %w", err)
 	}
-	log.Println(res)
 
-	return nil
+	return result, nil
 }
