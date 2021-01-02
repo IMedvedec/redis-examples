@@ -34,3 +34,23 @@ func (s *redisService) Get(ctx context.Context, key string) (string, error) {
 
 	return result, nil
 }
+
+// Set implements Service.Set method.
+func (s *redisService) Set(ctx context.Context, key, value string) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("redis: set command has context error: %w", err)
+	}
+
+	conn, err := s.pool.GetContext(ctx)
+	if err != nil {
+		return fmt.Errorf("redis: connection setup for set command has failed: %w", err)
+	}
+	defer conn.Close()
+
+	_, err = redis.String(conn.Do("SET", key, value))
+	if err != nil {
+		return fmt.Errorf("redis: set command has failed: %w", err)
+	}
+
+	return nil
+}

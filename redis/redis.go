@@ -23,6 +23,8 @@ type Service interface {
 	Shutdown(ctx context.Context) error
 	// Get returns the value associated with a key.
 	Get(ctx context.Context, key string) (string, error)
+	// Set assigns a value to a key.
+	Set(ctx context.Context, key, value string) error
 }
 
 // Check in compile time that redisService implements the Service interface.
