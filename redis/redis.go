@@ -21,6 +21,8 @@ type Service interface {
 	Ping(ctx context.Context) (string, error)
 	// Shutdown closes the redis service connection pool.
 	Shutdown(ctx context.Context) error
+	// Get returns the value associated with a key.
+	Get(ctx context.Context, key string) (string, error)
 }
 
 // Check in compile time that redisService implements the Service interface.
@@ -103,7 +105,7 @@ func (s *redisService) Ping(ctx context.Context) (string, error) {
 
 	conn, err := s.pool.GetContext(ctx)
 	if err != nil {
-		return "", fmt.Errorf("redis: connection setup for PING command has failed: %w", err)
+		return "", fmt.Errorf("redis: connection setup for ping command has failed: %w", err)
 	}
 	defer conn.Close()
 
