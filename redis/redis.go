@@ -49,7 +49,11 @@ func (s *redisService) initialization(address string) error {
 		IdleTimeout: 180 * time.Second,
 
 		DialContext: func(ctx context.Context) (redis.Conn, error) {
-			c, err := redis.DialContext(ctx, "tcp", address)
+			opts := []redis.DialOption{
+				redis.DialConnectTimeout(3 * time.Second),
+			}
+
+			c, err := redis.DialContext(ctx, "tcp", address, opts...)
 			if err != nil {
 				return nil, err
 			}
