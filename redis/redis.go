@@ -4,15 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
-)
-
-const (
-	redisHostEnvVarKey = "REDIS_HOST"
-	defaultRedisHost   = ":6379"
 )
 
 // Service defines the client interface for redis usage.
@@ -36,10 +30,10 @@ type redisService struct {
 }
 
 // NewService is a redisService constructor.
-func NewService() (Service, error) {
+func NewService(address string) (Service, error) {
 	redisService := redisService{}
 
-	if err := redisService.initialization(); err != nil {
+	if err := redisService.initialization(address); err != nil {
 		return nil, fmt.Errorf("redis: new redis service initialization has failed: %w", err)
 	}
 
@@ -49,18 +43,13 @@ func NewService() (Service, error) {
 // initialization is a helper method for service initialization.
 //
 // Method is used for connection pool setup with the redis server.
-func (s *redisService) initialization() error {
-	redisHost := os.Getenv(redisHostEnvVarKey)
-	if redisHost == "" {
-		redisHost = defaultRedisHost
-	}
-
+func (s *redisService) initialization(address string) error {
 	s.pool = &redis.Pool{
 		MaxIdle:     3,
 		IdleTimeout: 180 * time.Second,
 
 		DialContext: func(ctx context.Context) (redis.Conn, error) {
-			c, err := redis.DialContext(ctx, "tcp", redisHost)
+			c, err := redis.DialContext(ctx, "tcp", address)
 			if err != nil {
 				return nil, err
 			}

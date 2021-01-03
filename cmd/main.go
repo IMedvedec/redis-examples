@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	redisService, err := redis.NewService()
+	redisService, err := redis.NewService(":6379")
 	if err != nil {
 		log.Println(err)
 		return
